@@ -1,4 +1,4 @@
-﻿# ProtoReady: Footstep System
+# ProtoReady: Footstep System
 
 > **[UE 5.5+]** **[C++]** **[Production-Ready]**
 

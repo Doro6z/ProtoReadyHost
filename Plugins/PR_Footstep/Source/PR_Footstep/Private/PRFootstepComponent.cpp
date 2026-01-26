@@ -5,7 +5,11 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h" // For Auto-Land
 #include "Kismet/GameplayStatics.h"
+#include "Modules/ModuleManager.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#if WITH_EDITOR
+#include "AssetRegistry/AssetRegistryModule.h"
+#endif
 
 UPRFootstepComponent::UPRFootstepComponent() {
   PrimaryComponentTick.bCanEverTick = true;
@@ -38,6 +42,13 @@ void UPRFootstepComponent::BeginPlay() {
     }
   }
 }
+
+#if WITH_EDITOR
+void UPRFootstepComponent::OnComponentCreated() {
+  Super::OnComponentCreated();
+  AutoAssignFootstepData();
+}
+#endif
 
 void UPRFootstepComponent::OnLanded(const FHitResult &Hit) { TriggerLand(); }
 
@@ -89,12 +100,12 @@ void UPRFootstepComponent::TickComponent(
 
   LastLocation = CurrentLocation;
 
-  // Check if Stride Interval reached
-  // Check Stride > 0 to avoid potential div/0 or infinite loop logical issues
-  if (FootstepData->StrideIntervalCm > 0.0f &&
-      AccumulatedDistance >= FootstepData->StrideIntervalCm) {
+  // Check if distance interval reached
+  // Check interval > 0 to avoid potential div/0 or infinite loop logical issues
+  if (FootstepData->DistanceInterval > 0.0f &&
+      AccumulatedDistance >= FootstepData->DistanceInterval) {
     // Consume distance
-    AccumulatedDistance -= FootstepData->StrideIntervalCm;
+    AccumulatedDistance -= FootstepData->DistanceInterval;
 
     // Trigger next foot
     if (FootstepData->FootSockets.Num() > 0) {
@@ -119,6 +130,51 @@ void UPRFootstepComponent::CacheOwnerMesh() {
     OwnerMesh = Owner->FindComponentByClass<USkeletalMeshComponent>();
   }
 }
+
+#if WITH_EDITOR
+void UPRFootstepComponent::AutoAssignFootstepData() {
+  if (FootstepData) {
+    return;
+  }
+
+  FAssetRegistryModule &AssetRegistryModule =
+      FModuleManager::LoadModuleChecked<FAssetRegistryModule>(
+          "AssetRegistry");
+
+  FARFilter Filter;
+  Filter.ClassPaths.Add(UPRFootstepData::StaticClass()->GetClassPathName());
+  Filter.bRecursiveClasses = true;
+
+  TArray<FAssetData> Assets;
+  AssetRegistryModule.Get().GetAssets(Filter, Assets);
+
+  if (Assets.Num() == 1) {
+    FootstepData = Cast<UPRFootstepData>(Assets[0].GetAsset());
+    if (FootstepData) {
+      UE_LOG(LogTemp, Log, TEXT("[PRFootstep] Auto-assigned FootstepData: %s"),
+             *GetNameSafe(FootstepData));
+    }
+    return;
+  }
+
+  if (Assets.Num() > 1) {
+    const FName PreferredAssetName(TEXT("DA_Footstep_Config_A"));
+    const FAssetData *Preferred = Assets.FindByPredicate(
+        [&](const FAssetData &Asset) {
+          return Asset.AssetName == PreferredAssetName;
+        });
+
+    if (Preferred) {
+      FootstepData = Cast<UPRFootstepData>(Preferred->GetAsset());
+      if (FootstepData) {
+        UE_LOG(LogTemp, Log,
+               TEXT("[PRFootstep] Auto-assigned default FootstepData: %s"),
+               *GetNameSafe(FootstepData));
+      }
+    }
+  }
+}
+#endif
 
 void UPRFootstepComponent::TriggerFootstep(FName SocketName) {
   if (!FootstepData) {

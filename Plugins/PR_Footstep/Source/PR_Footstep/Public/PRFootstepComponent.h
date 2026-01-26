@@ -30,6 +30,10 @@ public:
   TickComponent(float DeltaTime, ELevelTick TickType,
                 FActorComponentTickFunction *ThisTickFunction) override;
 
+#if WITH_EDITOR
+  virtual void OnComponentCreated() override;
+#endif
+
   // --- Configuration ---
 
   /**
@@ -117,4 +121,8 @@ private:
 
   /** Index of the current foot in the FootSockets array */
   int32 CurrentFootIndex = 0;
+
+#if WITH_EDITOR
+  void AutoAssignFootstepData();
+#endif
 };

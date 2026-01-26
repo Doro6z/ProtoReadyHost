@@ -43,6 +43,16 @@ public class PR_Footstep : ModuleRules
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
+
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"AssetRegistry"
+				}
+			);
+		}
 		
 		
 		DynamicallyLoadedModuleNames.AddRange(
