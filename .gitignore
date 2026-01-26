@@ -1,0 +1,33 @@
+# Unreal Engine
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+.vscode/
+.vs/
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+
+# Distribution
+/Config/DefaultGame.ini
+/Config/DefaultEngine.ini
+# But we usually want to keep Configs...
+# Standard UE gitignore usually keeps Config. 
+# Ignoring user specific configs:
+/Config/User*.ini
+/Config/Local*.ini
+
+# Plugins - Ignore specific plugin binaries if not locally managed, but here PR_Footstep is local source.
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# System
+.DS_Store
+Thumbs.db
