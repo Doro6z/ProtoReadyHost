@@ -79,6 +79,19 @@ public:
   void TestFootstep();
 
   /**
+   * @brief Manually sets the distance interval (stride) at runtime.
+   * Useful for changing stride when character speed changes (Walk vs Run).
+   */
+  UFUNCTION(BlueprintCallable, Category = "Footsteps")
+  void SetFootIntervalDistance(float NewInterval);
+
+  /**
+   * @brief Gets the current distance interval (stride).
+   */
+  UFUNCTION(BlueprintCallable, Category = "Footsteps")
+  float GetFootIntervalDistance() const;
+
+  /**
    * @brief Delegate bound to ACharacter::LandedDelegate.
    * Automatically calls TriggerLand().
    */
@@ -115,6 +128,10 @@ private:
 
   /** Accumulated distance for stride calculation */
   double AccumulatedDistance = 0.0;
+
+  /** Local copy of interval to allow runtime modification without dirtying
+   * Asset */
+  float InstanceDistanceInterval = 0.0f;
 
   /** Location of owner last frame */
   FVector LastLocation;

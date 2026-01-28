@@ -1,29 +1,41 @@
 @echo off
-rem ============================================================================
-rem  BuildHelper.bat - Agent-friendly wrapper for Unreal Engine builds
-rem  Usage: BuildHelper.bat [options]
-rem         Options are passed directly to UnrealBuildTool (e.g., -LiveCoding)
-rem ============================================================================
+rem BuildHelper.bat - ProtoReadyHost
+rem Usage: BuildHelper.bat [Debug|Development|Shipping] [-LiveCoding]
 
-set "PROJECT_PATH=%~dp0ProtoReadyHost.uproject"
-set "ENGINE_PATH=C:\Program Files\Epic Games\UE_5.7\Engine\Build\BatchFiles\Build.bat"
+setlocal
 
-echo ========================================
-echo [AGENT] Build starting...
-echo [AGENT] Project: %PROJECT_PATH%
-echo [AGENT] Arguments: %*
-echo ========================================
+rem --- CONFIGURATION ---
+set UE_VERSION=5.7
+set PROJECT_NAME=ProtoReadyHost
+set PROJECT_PATH=%~dp0%PROJECT_NAME%.uproject
+set ENGINE_PATH=C:\Program Files\Epic Games\UE_%UE_VERSION%
+set UBT_PATH="%ENGINE_PATH%\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe"
 
-call "%ENGINE_PATH%" ProtoReadyHostEditor Win64 Development -Project="%PROJECT_PATH%" -WaitMutex -FromMsBuild %*
+rem --- ARGUMENTS ---
+set CONFIGURATION=Development
+if not "%1"=="" set CONFIGURATION=%1
+set ARGS=%2 %3 %4
+
+echo =======================================================
+echo   BUILDING %PROJECT_NAME% (%CONFIGURATION% Editor)
+echo =======================================================
+
+rem Check UBT
+if not exist %UBT_PATH% (
+    echo [ERROR] UnrealBuildTool not found at: %UBT_PATH%
+    echo Please verify UE_VERSION variable in this script.
+    pause
+    exit /b 1
+)
+
+rem Run UBT
+%UBT_PATH% %PROJECT_NAME%Editor Win64 %CONFIGURATION% -Project="%PROJECT_PATH%" -WaitMutex -FromMsBuild %ARGS%
 
 if %ERRORLEVEL% NEQ 0 (
-    echo ========================================
-    echo [AGENT] BUILD FAILED! ErrorLevel: %ERRORLEVEL%
-    echo ========================================
+    echo [FAILURE] Build failed with error code %ERRORLEVEL%
     exit /b %ERRORLEVEL%
 )
 
-echo ========================================
-echo [AGENT] BUILD SUCCESS!
-echo ========================================
-exit 0
+echo [SUCCESS] Build completed.
+endlocal
+exit /b 0

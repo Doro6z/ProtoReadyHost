@@ -53,22 +53,37 @@ Aucun code Blueprint requis pour démarrer.
 ### Landing Sound
 - `LandingSound` — Tooltip : Sound to play on heavy landing (Jump/Fall). If not set, standard footstep sound is used (with bIsHeavyLand flag).
 - `bAutoTriggerLand` — Tooltip : If true, binds to Character::OnLanded to trigger heavy landing sound. Requires Owner to be ACharacter.
+- `LandingTraceOffset` — Tooltip : Z offset (cm) specific for Landing trace start. Default: -50.0.
 
 ### Trace
 - `TraceLength` — Tooltip : Trace length (cm) below foot socket/bone. Increase if footsteps miss on steep slopes.
-- `TraceType` — Tooltip : Type of trace to use for surface detection (Line/Sphere/Multi).
-  Valeurs : `Line` (fast, precise), `Sphere` (catch edges, recommended), `Multi` (heavier, more accurate on rough terrain).
+- `TraceType` — Tooltip : Type of trace to use for surface detection (Line/Sphere/Box/Multi).
+  Valeurs : `Line` (fast, precise), `Sphere` (catch edges, recommended), `Box` (flat feet), `Multi` (heavier, more accurate on rough terrain).
+- `SphereRadius` — Tooltip : Radius (Sphere) of the trace shape (Visible for Sphere/Multi). Default: 10.0 cm.
+- `BoxHalfExtent` — Tooltip : Half-Extent of the Box trace (Visible for Box). Default: (10, 10, 10).
 - `FootSockets` — Tooltip : List of sockets to trace from. Cycles sequentially in Distance Mode. If empty, system falls back to Root/Capsule trace.
 - `FootBones` — Tooltip : Fallback bone names if Sockets not found. Used as alternative to Sockets.
-- `bUseFootSockets` — Tooltip : Toggle between socket-based and capsule-based tracing. True = uses FootSockets/FootBones. False = traces from Actor center (Capsule) with Z offset.
-- `CapsuleZOffset` — Tooltip : Z offset (cm) from Actor origin when NOT using foot sockets. Negative values move trace start down toward foot level (e.g. -50).
-- `TraceShapeSize` — Tooltip : Radius (Sphere) of the trace shape. Larger values catch edges better but might hit walls. Default: 10.0 cm.
+- `bUseFootSockets` — Tooltip : Toggle between socket-based and capsule-based tracing. True = uses FootSockets/FootBones.
+- `TraceStartRef` — Tooltip : Determines where to start the trace when NOT using sockets (or as fallback). Options: `Capsule`, `Root`.
+- `CapsuleZOffset` — Tooltip : Z offset (cm) from Actor origin when NOT using foot sockets. Negative values move trace start down toward foot level. Default: -89.0 (Human setup).
 
 ### Audio
 - `VolumeRange` — Tooltip : Random Volume range [Min, Max].
 - `PitchRange` — Tooltip : Random Pitch range [Min, Max].
 - `AttenuationSettings` — Tooltip : Attenuation settings for 3D spatialization. If empty, sound plays as 2D UI sound (heard everywhere).
 - `EffectsChain` — Tooltip : DSP Effects Chain (Reverb, EQ). Using this spawns an AudioComponent (heavier than static fire-and-forget).
+
+#### Setup Attenuation (Recommandé)
+1. Clic droit dans le Content Browser > **Audio** > **Sound Attenuation**.
+2. Nommez-le `DA_Footstep_Att` (ou similaire).
+3. Ouvrez-le et réglez :
+   - **Attenuation Function** : *Logarithmic* ou *Natural Sound*.
+   - **Inner Radius** : ~100-200 cm (Distance où le son est à 100%).
+   - **Falloff Distance** : ~2000-3000 cm (Distance où le son disparait).
+   - **Enable Spatialization** : *True*.
+4. Assignez-le dans le DataAsset (`PRFootstepData` > Audio > Attenuation Settings).
+
+![DataAsset Setup](Docs/Media/PR_DataAsset_Surfaces.png)
 
 ### Distance Mode
 - `DistanceInterval` — Tooltip : Distance traveled (cm) before triggering a step (Distance Mode). Formula: Stride = MaxWalkSpeed / StepsPerSec.
@@ -83,7 +98,7 @@ Aucun code Blueprint requis pour démarrer.
 ## Utilisation AnimNotify (résumé)
 
 Ajoutez **PR Footstep** dans l’animation et renseignez `FootSocketName`.
-Le système utilise les sockets si `bUseFootSockets` est activé; sinon il bascule sur la trace capsule.
+Le système utilise les sockets si `bUseFootSockets` est activé; sinon il bascule sur la trace capsule/racine définie par `TraceStartRef`.
 
 ---
 
@@ -93,9 +108,9 @@ Le système utilise les sockets si `bUseFootSockets` est activé; sinon il bascu
   - `DefaultSound` non assigné (fallback requis si surface non mappée ou PhysMat absent).
   - LOD : `MaxLODDistance` trop faible (cm).
 - **Trace rate le sol**
-  - `TraceType` à `Line` sur terrain irrégulier → passer `Sphere`.
+  - `TraceType` à `Line` sur terrain irrégulier → passer `Sphere` ou `Box`.
   - `TraceLength` trop court.
-  - `bUseFootSockets` activé mais sockets/bones inexistants → fallback capsule mal positionné → ajuster `CapsuleZOffset`.
+  - `bUseFootSockets` activé mais sockets/bones inexistants → fallback capsule mal positionné → ajuster `CapsuleZOffset` (ex: -89 pour Mannequin).
 - **Pas de variation de surface**
   - Pas de **Physical Material** sur le mesh/material → `SurfaceType_Default` → `DefaultSound` (fallback).
 - **Trace ne touche rien**

@@ -1,0 +1,15 @@
+[Internationalization]
+Culture=en-US
+
+[/Script/UnrealEd.EditorPerProjectUserSettings]
+bUseLessCPUInBackground=True
+bEnableRealTimeViewports=False
+bMonitorEditorPerformance=True
+bShowFrameRateAndMemory=True
+
+[/Script/UnrealEd.LevelEditorPlaySettings]
+NewWindowWidth=1280
+NewWindowHeight=720
+
+[/Script/UnrealEd.EditorPerformanceSettings]
+bThrottleCPUWhenNotForeground=True

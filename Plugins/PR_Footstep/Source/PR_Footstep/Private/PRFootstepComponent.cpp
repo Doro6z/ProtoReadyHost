@@ -31,6 +31,8 @@ void UPRFootstepComponent::BeginPlay() {
     // Enable Tick if in Distance Mode
     if (FootstepData->TriggerMode == EPRFootstepTriggerMode::Distance) {
       SetComponentTickEnabled(true);
+      // Init local interval
+      InstanceDistanceInterval = FootstepData->FootIntervalDistance;
     }
 
     // Auto Bind to Landed
@@ -102,10 +104,10 @@ void UPRFootstepComponent::TickComponent(
 
   // Check if distance interval reached
   // Check interval > 0 to avoid potential div/0 or infinite loop logical issues
-  if (FootstepData->DistanceInterval > 0.0f &&
-      AccumulatedDistance >= FootstepData->DistanceInterval) {
+  if (InstanceDistanceInterval > 0.0f &&
+      AccumulatedDistance >= InstanceDistanceInterval) {
     // Consume distance
-    AccumulatedDistance -= FootstepData->DistanceInterval;
+    AccumulatedDistance -= InstanceDistanceInterval;
 
     // Trigger next foot
     if (FootstepData->FootSockets.Num() > 0) {
@@ -138,8 +140,7 @@ void UPRFootstepComponent::AutoAssignFootstepData() {
   }
 
   FAssetRegistryModule &AssetRegistryModule =
-      FModuleManager::LoadModuleChecked<FAssetRegistryModule>(
-          "AssetRegistry");
+      FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 
   FARFilter Filter;
   Filter.ClassPaths.Add(UPRFootstepData::StaticClass()->GetClassPathName());
@@ -159,8 +160,8 @@ void UPRFootstepComponent::AutoAssignFootstepData() {
 
   if (Assets.Num() > 1) {
     const FName PreferredAssetName(TEXT("DA_Footstep_Config_A"));
-    const FAssetData *Preferred = Assets.FindByPredicate(
-        [&](const FAssetData &Asset) {
+    const FAssetData *Preferred =
+        Assets.FindByPredicate([&](const FAssetData &Asset) {
           return Asset.AssetName == PreferredAssetName;
         });
 
@@ -175,6 +176,17 @@ void UPRFootstepComponent::AutoAssignFootstepData() {
   }
 }
 #endif
+
+void UPRFootstepComponent::SetFootIntervalDistance(float NewInterval) {
+  InstanceDistanceInterval = NewInterval;
+  UE_LOG(LogTemp, Verbose,
+         TEXT("[PRFootstep] Updated Instance Distance Interval to: %f"),
+         NewInterval);
+}
+
+float UPRFootstepComponent::GetFootIntervalDistance() const {
+  return InstanceDistanceInterval;
+}
 
 void UPRFootstepComponent::TriggerFootstep(FName SocketName) {
   if (!FootstepData) {
@@ -195,33 +207,57 @@ void UPRFootstepComponent::TriggerFootstep(FName SocketName) {
   }
 
   // Determine Start Location
-  FVector StartLocation;
+  FVector StartLocation = GetOwner()->GetActorLocation(); // Default safety
 
-  if (FootstepData->bUseFootSockets && OwnerMesh && SocketName != NAME_None &&
-      OwnerMesh->DoesSocketExist(SocketName)) {
-    // Use socket location
-    StartLocation = OwnerMesh->GetSocketLocation(SocketName);
-    // Safety offset: prevent starting inside the floor
-    StartLocation.Z += 20.0f;
-    UE_LOG(LogTemp, Log, TEXT("[PRFootstep] Tracing from Socket: %s at %s"),
-           *SocketName.ToString(), *StartLocation.ToString());
-  } else {
-    if (FootstepData->bUseFootSockets && OwnerMesh && SocketName != NAME_None &&
-        !OwnerMesh->DoesSocketExist(SocketName)) {
-      UE_LOG(LogTemp, Warning,
-             TEXT("[PRFootstep] Socket not found: %s (fallback to capsule)"),
-             *SocketName.ToString());
+  bool bShouldUseSocket = FootstepData->bUseFootSockets;
+  FName SelectedSocket = SocketName;
+
+  // 1. Try Socket if enabled (Iterative List)
+  if (bShouldUseSocket) {
+    if (OwnerMesh && SelectedSocket != NAME_None &&
+        OwnerMesh->DoesSocketExist(SelectedSocket)) {
+      StartLocation = OwnerMesh->GetSocketLocation(SelectedSocket);
+      // Small safety Z lift for sockets to avoid starting *in* the floor
+      StartLocation.Z += 20.0f;
+    } else {
+      bShouldUseSocket = false; // Fallback to Reference
     }
-    // Fallback: Trace from Actor center (Capsule) with Z offset
-    if (!GetOwner()) {
-      UE_LOG(LogTemp, Error, TEXT("[PRFootstep] Owner is NULL!"));
-      return;
+  }
+
+  // 2. Use Reference (Capsule/Root/SingleSocket) if List Mode disabled or
+  // failed
+  if (!bShouldUseSocket) {
+
+    // CASE A: Single Socket Reference
+    if (FootstepData->TraceStartRef == EPRTraceStartReference::Socket) {
+      FName RefSocket = FootstepData->ReferenceSocketName;
+      if (OwnerMesh && RefSocket != NAME_None &&
+          OwnerMesh->DoesSocketExist(RefSocket)) {
+        StartLocation = OwnerMesh->GetSocketLocation(RefSocket);
+        StartLocation.Z += 20.0f; // Similar safety lift
+        UE_LOG(LogTemp, Verbose,
+               TEXT("[PRFootstep] Tracing from Reference Socket: %s"),
+               *RefSocket.ToString());
+      } else {
+        UE_LOG(LogTemp, Warning,
+               TEXT("[PRFootstep] Reference Socket '%s' invalid. Check Data "
+                    "Asset."),
+               *RefSocket.ToString());
+      }
     }
-    StartLocation = GetOwner()->GetActorLocation();
-    StartLocation.Z += FootstepData->CapsuleZOffset;
-    UE_LOG(LogTemp, Log,
-           TEXT("[PRFootstep] Tracing from Capsule (Z offset: %.1f) at %s"),
-           FootstepData->CapsuleZOffset, *StartLocation.ToString());
+    // CASE B: Root Component
+    else if (FootstepData->TraceStartRef == EPRTraceStartReference::Root) {
+      if (USceneComponent *RootComp = GetOwner()->GetRootComponent()) {
+        StartLocation = RootComp->GetComponentLocation();
+        StartLocation.Z += FootstepData->CapsuleZOffset;
+      }
+    }
+    // CASE C: Capsule / Default
+    else {
+      // Default: Actor Location (Capsule Center) + Offset
+      StartLocation = GetOwner()->GetActorLocation();
+      StartLocation.Z += FootstepData->CapsuleZOffset;
+    }
   }
 
   FVector EndLocation =
@@ -232,8 +268,11 @@ void UPRFootstepComponent::TriggerFootstep(FName SocketName) {
     EPhysicalSurface Surface = GetSurfaceFromHit(Hit);
     PlayFootstepSound(Surface, Hit.Location, false);
   } else {
-    UE_LOG(LogTemp, Warning, TEXT("[PRFootstep] Trace MISSED from %s to %s"),
-           *StartLocation.ToString(), *EndLocation.ToString());
+    // Only warn if debug is enabled to avoid spam
+    if (bDebugTraces) {
+      UE_LOG(LogTemp, Warning, TEXT("[PRFootstep] Trace MISSED from %s to %s"),
+             *StartLocation.ToString(), *EndLocation.ToString());
+    }
   }
 }
 
@@ -242,27 +281,31 @@ void UPRFootstepComponent::TriggerLand() {
     return;
 
   // Land trace is vertical from actor center down
-  // Determine Start Location for Land
-  // We reuse the Capsule Z Offset logic to ensure we start near the feet,
-  // preventing the trace from starting too high (Actor Center) or missing the
-  // ground.
-  float ZOffset = FootstepData->CapsuleZOffset;
+  // Use LandingTraceOffset if non-zero, otherwise fallback to CapsuleZOffset
+  // logic or similar. The user requested LandingTraceOffset specifically.
 
-  // Start slightly higher than feet to ensure we catch the ground
+  float ZOffset = FootstepData->LandingTraceOffset;
+
+  // Start logic similar to Reference trigger
   FVector Start = GetOwner()->GetActorLocation();
-  Start.Z += ZOffset + 50.0f; // +50cm buffer above feet
+  Start.Z += ZOffset; // Apply specific landing offset (e.g. -50 usually)
 
-  FVector End =
-      Start -
-      FVector(0, 0, FootstepData->TraceLength * 3.0f); // Long trace down
+  // Ensure we start high enough? Actually Offset should handle it.
+  // User asked for "Trace Offset" in landing sound.
+
+  FVector End = Start - FVector(0, 0,
+                                FootstepData->TraceLength *
+                                    2.0f); // Longer trace for landing
 
   FHitResult Hit;
   if (PerformTrace(Start, End, Hit)) {
     EPhysicalSurface Surface = GetSurfaceFromHit(Hit);
     PlayFootstepSound(Surface, Hit.Location, true);
   } else {
-    UE_LOG(LogTemp, Warning, TEXT("[PRFootstep] Land Trace MISSED! StartZ: %f"),
-           Start.Z);
+    if (bDebugTraces) {
+      UE_LOG(LogTemp, Warning,
+             TEXT("[PRFootstep] Land Trace MISSED! StartZ: %f"), Start.Z);
+    }
   }
 }
 
@@ -278,7 +321,10 @@ bool UPRFootstepComponent::PerformTrace(const FVector &Start,
   // Select trace type based on DataAsset setting
   EPRTraceType TraceMode =
       FootstepData ? FootstepData->TraceType : EPRTraceType::Sphere;
-  float ShapeSize = FootstepData ? FootstepData->TraceShapeSize : 10.0f;
+
+  float ShapeRadius = FootstepData ? FootstepData->SphereRadius : 10.0f;
+  FVector BoxExtent =
+      FootstepData ? FootstepData->BoxHalfExtent : FVector(10.f);
 
   switch (TraceMode) {
   case EPRTraceType::Line:
@@ -289,14 +335,20 @@ bool UPRFootstepComponent::PerformTrace(const FVector &Start,
   case EPRTraceType::Sphere:
     bHit = GetWorld()->SweepSingleByChannel(
         OutHit, Start, End, FQuat::Identity, ECC_Visibility,
-        FCollisionShape::MakeSphere(ShapeSize), Params);
+        FCollisionShape::MakeSphere(ShapeRadius), Params);
+    break;
+
+  case EPRTraceType::Box:
+    bHit = GetWorld()->SweepSingleByChannel(
+        OutHit, Start, End, FQuat::Identity, ECC_Visibility,
+        FCollisionShape::MakeBox(BoxExtent), Params);
     break;
 
   case EPRTraceType::Multi:
     // Multi-trace: Try sphere first, fallback to line
     bHit = GetWorld()->SweepSingleByChannel(
         OutHit, Start, End, FQuat::Identity, ECC_Visibility,
-        FCollisionShape::MakeSphere(ShapeSize), Params);
+        FCollisionShape::MakeSphere(ShapeRadius), Params);
     if (!bHit) {
       bHit = GetWorld()->LineTraceSingleByChannel(OutHit, Start, End,
                                                   ECC_Visibility, Params);
@@ -308,8 +360,13 @@ bool UPRFootstepComponent::PerformTrace(const FVector &Start,
     if (TraceMode == EPRTraceType::Line) {
       DrawDebugLine(GetWorld(), Start, End, bHit ? FColor::Green : FColor::Red,
                     false, 1.0f);
+    } else if (TraceMode == EPRTraceType::Box) {
+      DrawDebugBox(GetWorld(), Start,
+                   FootstepData ? FootstepData->BoxHalfExtent : FVector(10.f),
+                   bHit ? FColor::Green : FColor::Red, false, 1.0f);
     } else {
-      DrawDebugCylinder(GetWorld(), Start, End, ShapeSize, 8,
+      float Radius = FootstepData ? FootstepData->SphereRadius : 10.0f;
+      DrawDebugCylinder(GetWorld(), Start, End, Radius, 8,
                         bHit ? FColor::Green : FColor::Red, false, 1.0f);
     }
   }

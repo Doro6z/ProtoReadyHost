@@ -1,47 +1,66 @@
-# ProtoReady Host Project
+# 🦶 ProtoReady: Footstep System
 
-> **Production-Ready Unreal Engine Systems**
-> *Modular, Performant, C++ Powered Plugins.*
+> **[UE 5.5+]** **[C++]** **[Production-Ready]**
 
-**ProtoReady** is a suite of high-quality, zero-configuration plugins designed to drop straight into production Unreal Engine projects. Each module focuses on solving one specific game development problem perfectly, with robust C++ backends and developer-friendly DataAsset configuration.
-
----
-
-## 📦 Modules Status
-
-| Module                                           | Version |   Status    | Description                                                                     |
-| :----------------------------------------------- | :-----: | :---------: | :------------------------------------------------------------------------------ |
-| **[PR_Footstep](Plugins/PR_Footstep/README.md)** |  `1.0`  | ✅ **Ready** | Advanced surface detection, AnimNotify & Distance triggering, highly optimized. |
-| **PR_Ambience**                                  |    -    | 🚧 *Planned* | Dynamic environmental audio system.                                             |
-| **PR_Interaction**                               |    -    | 🚧 *Planned* | Robust interaction system.                                                      |
+A high-performance, DataAsset-driven footstep system for Unreal Engine. Designed for C++ efficiency with a designer-friendly workflow (No Blueprints required).
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Features
 
-This repository acts as the **Host Project** for developing and testing the ProtoReady suite.
-
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/Doro6z/ProtoReadyHost.git
-    ```
-2.  **Open in Unreal Engine 5.5+**:
-    - Launch `ProtoReadyHost.uproject`.
-3.  **Explore**:
-    - Open `L_Showcase_PR_Footstep` to verify the footstep system.
-    - Check `Plugins/PR_Footstep/Content` for examples.
+- **Component-Based**: Drop `PRFootstepComponent` onto any Actor.
+- **Physics-Driven**: Automatically detects surfaces via Physical Materials.
+- **Flexible Tracing**:
+  - ✨ **Sphere Trace**: Catch edges and uneven terrain.
+  - 📏 **Line Trace**: Fast and precise.
+  - 📦 **Box Trace**: Ideal for flat-footed characters.
+- **Dual Trigger Modes**:
+  - **AnimNotify**: Frame-perfect synchronization (Animation-driven).
+  - **Distance**: Logic-driven stride calculations (Great for NPCs/prototypes).
+- **Audio Polish**:
+  - Spatialization & Attenuation support.
+  - Random Pitch/Volume modulation.
+  - Heavy Landing detection (Auto-binds to Character).
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Setup Guide
 
--   **Engine**: Unreal Engine 5.5+
--   **Language**: C++ / Blueprints (Data-Driven)
--   **Audio**: MetaSounds & Legacy Cue Support
+### 1. Installation
+1. Copy `PR_Footstep` into your project's `Plugins` folder.
+2. Enable it via **Edit > Plugins**.
+
+### 2. Configuration
+1. Define **Physical Surfaces** in `Project Settings > Engine > Physics`.
+2. Create a `PRFootstepData` asset.
+3. Map your surfaces to Sounds (Cues or WAVs).
+
+![Surfaces Setup](Distribution/PR_DataAsset_Surfaces.png)
+
+### 3. Usage
+Add the `PRFootstepComponent` to your Character.
+- **AnimNotify**: Add `PR_Footstep` to your Walk/Run animations.
+- **Distance**: Switch `TriggerMode` to *Distance* in the Data Asset.
+
+---
+
+## 📦 Content Included
+
+- **5 Material Types**: Concrete, Dirt, Grass, Water, Wood.
+- **20+ Audio Samples**: High-quality WAVs + SoundCues.
+- **Showcase Level**: Interactive demo map.
+
+---
+
+## 🔧 Technical Details
+
+- **Class**: `UPRFootstepComponent` (UActorComponent).
+- **Config**: `UPRFootstepData` (UPrimaryDataAsset).
+- **Network**: Client-side cosmetic effect (can be replicated via RPC if needed).
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-*Copyright (c) 2026 ProtoReady Pack*
+MIT License. Free for commercial use.
+(c) 2026 ProtoReady Pack

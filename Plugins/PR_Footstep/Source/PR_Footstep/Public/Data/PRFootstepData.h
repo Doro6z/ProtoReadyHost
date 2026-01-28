@@ -31,7 +31,8 @@ enum class EPRFootstepTriggerMode : uint8 {
 UENUM(BlueprintType)
 enum class EPRTraceType : uint8 {
   /**
-   * @brief Single line trace. Fast and precise but may miss edges.
+   * @brief Single line trace. Fast and precise but may miss edges designated
+   * for small objects.
    */
   Line,
 
@@ -42,10 +43,28 @@ enum class EPRTraceType : uint8 {
   Sphere,
 
   /**
+   * @brief Box sweep trace. Good for flat feet or rectangular contact areas.
+   */
+  Box,
+
+  /**
    * @brief Multi-line trace. Shoots multiple rays for complex surfaces.
    * Heavier but more accurate on rough terrain.
    */
   Multi
+};
+
+UENUM(BlueprintType)
+enum class EPRTraceStartReference : uint8 {
+  /** @brief Trace starts from the Actor's Capsule Center (with Z Offset). */
+  Capsule,
+
+  /** @brief Trace starts from the Actor's Root Component Location (0,0,0
+     local). */
+  Root,
+
+  /** @brief Trace starts from the specified Socket Location. */
+  Socket
 };
 
 class USoundBase;
@@ -56,11 +75,11 @@ class USoundEffectSourcePresetChain;
  *
  * Centralizes all settings:
  * - Surface to Sound mapping
- * - Trace parameters (Line/Sphere, Size, Distance)
+ * - Trace parameters (Line/Sphere/Box, Size, Distance)
  * - Trigger behavior (AnimNotify vs Distance)
  * - Audio modulation (Volume/Pitch/Attenuation)
  */
-UCLASS(BlueprintType, Const)
+UCLASS(BlueprintType, Const, meta = (DisplayName = "PR Footstep Data Asset"))
 class PR_FOOTSTEP_API UPRFootstepData : public UPrimaryDataAsset {
   GENERATED_BODY()
 
@@ -80,8 +99,21 @@ public:
    * - Distance: Automatic trigger. Fires every 'Stride Interval' cm.
    *   Best for simple movement, prototypes, or actors without AnimBPs.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|General")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|General")
   EPRFootstepTriggerMode TriggerMode = EPRFootstepTriggerMode::AnimNotify;
+
+  /**
+   * @brief Distance traveled (cm) before triggering a step.
+   * Active only when Trigger Mode is set to Distance.
+   *
+   * Formula: Stride = Speed / StepsPerSec.
+   */
+  UPROPERTY(
+      EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|General",
+      meta = (ClampMin = "10.0",
+              EditCondition = "TriggerMode == EPRFootstepTriggerMode::Distance",
+              EditConditionHides))
+  float FootIntervalDistance;
 
   // --- Surface Mappings ---
 
@@ -91,7 +123,7 @@ public:
    * @note Keys must match Surface Types defined in 'Project Settings > Engine >
    * Physics'. Example: SurfaceType1 (Concrete) -> SC_Concrete.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Surfaces")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Surfaces")
   TMap<TEnumAsByte<EPhysicalSurface>, TObjectPtr<USoundBase>> SurfaceSounds;
 
   /**
@@ -99,7 +131,7 @@ public:
    * None.
    * @warning Ideally should never be empty.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Surfaces")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Surfaces")
   TObjectPtr<USoundBase> DefaultSound;
 
   // --- Landing Sound ---
@@ -109,7 +141,7 @@ public:
    * If not set, standard footstep sound is used (with bIsHeavyLand flag).
    */
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
-            Category = "ProtoReady|Landing Sound")
+            Category = "PR Footstep|Landing Sound")
   TObjectPtr<USoundBase> LandingSound;
 
   /**
@@ -117,85 +149,120 @@ public:
    * sound. Requires Owner to be ACharacter.
    */
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
-            Category = "ProtoReady|Landing Sound")
+            Category = "PR Footstep|Landing Sound")
   bool bAutoTriggerLand = true;
 
-  // --- Trace Configuration ---
-
   /**
-   * @brief Trace length (cm) below foot socket/bone.
-   * Increase this value if footsteps miss on steep slopes.
+   * @brief Z offset (cm) specific for Landing trace start.
+   * Useful to trigger landing sound slightly earlier or later.
+   * Default: 0.0f.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace",
-            meta = (ClampMin = "5.0"))
-  float TraceLength;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "PR Footstep|Landing Sound")
+  float LandingTraceOffset = 0.0f;
+
+  // --- Trace Configuration ---
 
   /**
    * @brief Type of trace to use for surface detection.
    * - Line: Fast, precise.
    * - Sphere: Catch edges (Recommended).
+   * - Box: Good for flat feet.
    * - Multi: Complex terrain accuracy.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace")
   EPRTraceType TraceType = EPRTraceType::Sphere;
+
+  /**
+   * @brief Trace length (cm) below foot socket/bone.
+   * Increase this value if footsteps miss on steep slopes.
+   */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (ClampMin = "5.0"))
+  float TraceLength;
+
+  /**
+   * @brief Radius (Sphere) of the trace shape.
+   * Only used if TraceType is Sphere or Multi.
+   */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (ClampMin = "1.0",
+                    EditCondition = "TraceType == EPRTraceType::Sphere",
+                    EditConditionHides))
+  float SphereRadius = 10.0f;
+
+  /**
+   * @brief Half-Extent of the Box trace (X, Y, Z).
+   * Only used if TraceType is Box.
+   */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (EditCondition = "TraceType == EPRTraceType::Box",
+                    EditConditionHides))
+  FVector BoxHalfExtent = FVector(10.0f, 10.0f, 10.0f);
+
+  /**
+   * @brief Toggle to enable Socket-based tracing (Iterates through FootSockets
+   * list). If False, uses TraceStartRef to determine start point.
+   */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace")
+  bool bUseFootSockets = true;
 
   /**
    * @brief List of Sockets to trace from.
    * Cycles sequentially in Distance Mode.
-   * @note If empty, system falls back to Root/Capsule trace.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace",
-            meta = (EditCondition = "bUseFootSockets"))
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (EditCondition = "bUseFootSockets", EditConditionHides))
   TArray<FName> FootSockets;
 
   /**
    * @brief Fallback bone names if Sockets not found.
-   * Used as alternative to Sockets.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace",
-            meta = (EditCondition = "bUseFootSockets"))
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (EditCondition = "bUseFootSockets", EditConditionHides))
   TArray<FName> FootBones;
 
   /**
-   * @brief Toggle between Socket-based and Capsule-based tracing.
-   * - True: Uses FootSockets/FootBones.
-   * - False: Traces from Actor Center (Capsule) with Z Offset.
+   * @brief Determines where to start the trace when NOT using the FootSockets
+   * list.
+   * - Capsule: Start from Actor Capsule Center (+ Z Offset).
+   * - Root: Start from Actor Root Component Location (+ Z Offset).
+   * - Socket: Start from a specific single socket (ReferenceSocketName).
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace")
-  bool bUseFootSockets = true;
-
-  /**
-   * @brief Z offset (cm) from Actor origin when NOT using foot sockets.
-   * Negative values move trace start down toward foot level (e.g. -50).
-   */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace",
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
             meta = (EditCondition = "!bUseFootSockets", EditConditionHides))
-  float CapsuleZOffset = -50.0f;
+  EPRTraceStartReference TraceStartRef = EPRTraceStartReference::Capsule;
 
   /**
-   * @brief Radius (Sphere) of the trace shape.
-   * Larger values catch edges better but might hit walls.
-   * Default: 10.0 cm.
+   * @brief Name of the socket to use as trace origin when TraceStartRef is
+   * Socket.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Trace",
-            meta = (ClampMin = "1.0"))
-  float TraceShapeSize = 10.0f;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (EditCondition = "!bUseFootSockets", EditConditionHides))
+  FName ReferenceSocketName;
+
+  /**
+   * @brief Z offset (cm) from Start Reference.
+   */
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Trace",
+            meta = (EditCondition = "!bUseFootSockets", EditConditionHides))
+  float CapsuleZOffset = -89.0f;
 
   // --- Audio Settings ---
 
   /** @brief Random Volume range [Min, Max] (Default: ~1.0) */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Audio")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Audio")
   FVector2D VolumeRange;
 
   /** @brief Random Pitch range [Min, Max] (Default: ~1.0) */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Audio")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Audio")
   FVector2D PitchRange;
 
   /**
    * @brief Attenuation settings for 3D spatialization.
    * If empty, sound plays as 2D UI sound (heard everywhere).
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Audio")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Audio")
   TObjectPtr<USoundAttenuation> AttenuationSettings;
 
   /**
@@ -203,25 +270,8 @@ public:
    * @note Using this spawns an AudioComponent (heavier than static
    * fire-and-forget).
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Audio")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|Audio")
   TObjectPtr<USoundEffectSourcePresetChain> EffectsChain;
-
-  // --- Distance Mode Settings ---
-
-  /**
-   * @brief Distance traveled (cm) before triggering a step (Distance Mode).
-   *
-   * Formula: Stride = MaxWalkSpeed / StepsPerSec.
-   * - Walk (300): ~80cm
-   * - Jog (600): ~120cm
-   * - Sprint (900): ~180cm
-   */
-  UPROPERTY(
-      EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|Distance Mode",
-      meta = (ClampMin = "10.0",
-              EditCondition = "TriggerMode == EPRFootstepTriggerMode::Distance",
-              EditConditionHides))
-  float DistanceInterval;
 
   // --- LOD (Optimization) ---
 
@@ -230,6 +280,6 @@ public:
    * System stops ticking/tracing beyond this range to save performance.
    * Set to 0 to disable LOD.
    */
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ProtoReady|LOD")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PR Footstep|LOD")
   float MaxLODDistance = 3000.0f;
 };
