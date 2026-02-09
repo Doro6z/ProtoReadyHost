@@ -8,8 +8,10 @@
 	"CreatedBy": "DXV Systems",
 	"CreatedByURL": "https://fab.com/sellers/dxv-systems",
 	"DocsURL": "https://fab.com/sellers/dxv-systems",
+	"FabURL": "com.epicgames.launcher://ue/Fab/product/48c280a5-597a-4cdf-89e7-2593cf2c9c7a",
 	"MarketplaceURL": "",
 	"SupportURL": "https://fab.com/sellers/dxv-systems",
+	"EngineVersion": "5.7.0",
 	"CanContainContent": false,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
@@ -19,7 +21,7 @@
 			"Name": "LevelSwitcher",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"PlatformAllowList": [ "Win64" ]
 		}
 	]
 }

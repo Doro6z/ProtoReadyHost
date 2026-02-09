@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "LevelDragDropOp.h"
 #include "Styling/AppStyle.h"
 

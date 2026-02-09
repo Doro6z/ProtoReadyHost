@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "SLevelSwitcherWidget.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ContentBrowserModule.h"

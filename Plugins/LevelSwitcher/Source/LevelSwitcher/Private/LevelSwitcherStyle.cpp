@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "LevelSwitcherStyle.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IPluginManager.h"

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "LevelSwitcherCommands.h"
 
 #define LOCTEXT_NAMESPACE "FLevelSwitcherModule"

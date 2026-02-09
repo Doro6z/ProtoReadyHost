@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "LevelSwitcherModule.h"
 #include "Containers/Ticker.h" // For Ticker/Delay
 #include "FileHelpers.h"

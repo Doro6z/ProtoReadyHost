@@ -42,6 +42,9 @@ Access it via Window > Level Switcher or the toolbar icon.
 - Documentation (README)
 - Source code (C++)
 
+## Documentation
+- Docs/LevelSwitcher_UserGuide.md
+
 ## Changelog
 ### v1.0.0 - YYYY-MM-DD
 - Initial release

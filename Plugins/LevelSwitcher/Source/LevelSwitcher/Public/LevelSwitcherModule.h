@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #pragma once
 
 #include "CoreMinimal.h"

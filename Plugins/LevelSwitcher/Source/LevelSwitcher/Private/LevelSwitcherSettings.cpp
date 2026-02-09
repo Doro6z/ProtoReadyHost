@@ -1,3 +1,4 @@
+// Copyright (c) 2026 DXV Systems.
 #include "LevelSwitcherSettings.h"
 
 ULevelSwitcherSettings::ULevelSwitcherSettings() {
