@@ -18,6 +18,9 @@ Level Switcher is an editor tool for fast level navigation in Unreal Engine. It 
 3. Click the star to add or remove favorites.
 4. Use the Startup dropdown or right-click a level to set the startup level.
 
+## Favorites
+Favorite levels are grouped into a dedicated top section for faster access and a streamlined workflow.
+
 ## Context Actions
 - Set as startup level
 - Add/remove favorites
@@ -27,4 +30,4 @@ Level Switcher is an editor tool for fast level navigation in Unreal Engine. It 
 
 ## Notes
 - Editor-only utility. No runtime overhead.
-- Requires Asset Registry indexing to list maps.
+- Requires Asset Registry indexing to list maps. This is handled natively by Unreal Engine, but if you use a third-party system to generate or manage levels, ensure those assets are properly indexed.
