@@ -1,5 +1,8 @@
 ﻿# Level Switcher
 
+![Level Switcher overview](Docs/LevelSwitcherOverview.png)
+
+
 > Editor tool for fast level navigation in Unreal Editor
 
 ## Overview
